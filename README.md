@@ -17,6 +17,7 @@ Key features:
 
 - Script execution enabled.
 - PowerShell running with Administrator privileges.
+- VSS service must be enabled.
 - `diskshadow.exe` must be available in the system PATH (typically located at `C:\Windows\System32\diskshadow.exe`).
 
 ## How to run?
