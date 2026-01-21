@@ -38,7 +38,7 @@ Key features:
 
 5. This will register two scheduled tasks in Windows Task Scheduler that run automatically with configurable settings from `config.ps1`:
     - Snapshot creation every `$SnapshotIntervalMinutes` minutes (defaults to 30)
-    - Cleanup of snapshots older than `$RetentionDays` days (defaults to 90), run daily at 2:00 AM
+    - Cleanup of snapshots older than `$RetentionDays` days (defaults to 90), run daily at 2:00 AM (by default)
 
 6. To list existing snapshots, run:
     ```powershell
