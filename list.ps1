@@ -3,15 +3,16 @@
     Displays a filtered list of all current Volume Shadow Copy snapshots.
 
 .DESCRIPTION
-    Runs 'vssadmin list shadows' and filters the output to show key snapshot details:
-    Shadow Copy ID, Creation Time, and Original Volume.
-    Requires administrator privileges.
+    Lists existing snapshots via WMI, showing key details like Shadow Copy ID,
+    Creation Time, and Original Volume.
+    Requires Administrator privileges.
 #>
 
 . "$PSScriptRoot\utils.ps1"
 
 Require-Admin
 
-Write-Host "List of snapshots (Volume Shadow Copies):"
-
-vssadmin list shadows | Select-String "Shadow Copy ID|Creation Time|Original Volume"
+Get-CimInstance Win32_ShadowCopy |
+    Sort-Object InstallDate -Descending |
+    Select-Object ID, InstallDate, VolumeName |
+    Format-Table -AutoSize
