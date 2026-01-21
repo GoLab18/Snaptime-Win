@@ -16,33 +16,28 @@ if (-not (Test-Path $installDir)) {
     New-Item -ItemType Directory -Path $installDir | Out-Null
 }
 
-# Copying all scripts to the install directory
 Copy-Item -Path .\*.ps1 -Destination $installDir -Force
 
 $snapshotScript = Join-Path $installDir "snapshot.ps1"
 $cleanupScript = Join-Path $installDir "cleanup.ps1"
 
-# Removing old scheduled tasks if they exist
 try { Unregister-ScheduledTask -TaskName "PSTM_Snapshot" -Confirm:$false -ErrorAction SilentlyContinue } catch {}
 try { Unregister-ScheduledTask -TaskName "PSTM_Cleanup" -Confirm:$false -ErrorAction SilentlyContinue } catch {}
 
 . "$installDir\config.ps1"
 
-# Creating a trigger to run the snapshot script once starting today, repeating every $SnapshotIntervalMinutes for ~ 10 years
 $triggerSnapshot = New-ScheduledTaskTrigger `
     -Once `
     -At (Get-Date) `
     -RepetitionInterval (New-TimeSpan -Minutes $SnapshotIntervalMinutes) `
     -RepetitionDuration (New-TimeSpan -Days 3650)
 
-# Creating a trigger to run the cleanup script daily at the configured time
 $cleanupDateTime = [datetime]::Today.Add(
     [TimeSpan]::Parse($CleanupTime)
 )
 
 $triggerCleanup = New-ScheduledTaskTrigger -Daily -At $cleanupDateTime
 
-# Defining the actions to execute scripts, bypassing execution policy
 $actionSnapshot = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$snapshotScript`""
 $actionCleanup = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$cleanupScript`""
 
