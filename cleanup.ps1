@@ -12,24 +12,11 @@
 
 Require-Admin
 
-# Calculating the cutoff date for snapshot retention
 $limitDate = (Get-Date).AddDays(-$RetentionDays)
 
-$vss = vssadmin list shadows
-
-# Splitting the output into blocks, each describing one snapshot, by "Shadow Copy ID"
-$blocks = ($vss -split "Shadow Copy ID:")[1..($vss.Length)]
-
-foreach ($block in $blocks) {
-    if ($block -match "Creation Time:\s+(.*)") {
-        $creationDate = Get-Date $matches[1]
-
-        if ($creationDate -lt $limitDate) {
-            if ($block -match "{(.*?)}") {
-                $shadowId = $matches[1]
-                Write-Host "Deleting snapshot $shadowId, created on $creationDate"
-                vssadmin delete shadows /Shadow={$shadowId} /Quiet
-            }
-        }
+Get-CimInstance Win32_ShadowCopy | ForEach-Object {
+    if ($_.InstallDate -lt $limitDate) {
+        Write-Host "Deleting snapshot $($_.ID) created on $($_.InstallDate)"
+        Invoke-CimMethod -InputObject $_ -MethodName Delete | Out-Null
     }
 }
