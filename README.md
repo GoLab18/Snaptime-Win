@@ -2,7 +2,7 @@
 
 ## Description
 
-PowerShell-based tool that automates the creation and management of Volume Shadow Copy snapshots on Windows systems.
+PowerShell-based tool that automates the creation and management of Volume Shadow Copy snapshots on Windows systems.  
 It periodically creates point-in-time snapshots of specified volumes, allowing users to browse and restore individual files or folders from previous states. The solution includes automatic cleanup of snapshots older than a configurable retention period, ensuring efficient disk space usage.
 
 Key features:
@@ -18,7 +18,7 @@ Key features:
 - Script execution enabled.
 - PowerShell running with Administrator privileges.
 - VSS service must be enabled.
-- `diskshadow.exe` must be available in the system PATH (typically located at `C:\Windows\System32\diskshadow.exe`).
+- `diskshadow.exe` must be available in the system PATH (typically located at `C:\Windows\System32\diskshadow.exe`) **only if the DiskShadow backend is chosen**.
 
 ## How to run?
 
@@ -44,3 +44,10 @@ Key features:
     ```powershell
     .\restore.ps1 -ShadowID &lt;SnapshotID&gt; -SourcePath &lt;PathInsideSnapshot&gt; -DestinationPath &lt;RestoreLocation&gt;
     ```
+
+## Snapshot Backend Selection
+
+You can configure which snapshot engine to use by setting the `$SnapshotProvider` variable in `config.ps1`:
+
+- `WMI (default)`: Uses the native WMI Win32_ShadowCopy interface. Compatible with both Windows Client and Server editions and does not require `diskshadow.exe`.
+- `DiskShadow`: Uses the `diskshadow.exe` utility which is available only on `Windows Server` editions.
