@@ -1,11 +1,10 @@
 <#
 .SYNOPSIS
-    Creates Volume Shadow Copy snapshots for configured volumes.
+    Main snapshot script dispatcher.
 
 .DESCRIPTION
-    For each volume specified in the configuration,
-    generates a temporary diskshadow script and executes it to create persistent snapshots.
-    Requires administrator privileges.
+    Selects the snapshot backend based on configuration and runs the corresponding snapshot creation script.
+    Requires Administrator privileges.
 #>
 
 . "$PSScriptRoot\config.ps1"
@@ -13,26 +12,21 @@
 
 Require-Admin
 
-foreach ($vol in $Volumes) {
-    Write-Host "Creating snapshot for $vol"
-
-    $script = @"
-SET CONTEXT PERSISTENT
-SET METADATA C:\ShadowCopyMetadata.cab
-CREATE SHADOW ON $vol
-END SET
-"@
-
-    $tempScriptFile = "$env:TEMP\diskshadow_script.txt"
-    $script | Out-File -FilePath $tempScriptFile -Encoding ASCII
-
-    diskshadow.exe /s $tempScriptFile
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Snapshot for $vol created successfully."
-    } else {
-        Write-Error "Error creating snapshot for $vol."
+switch ($SnapshotProvider) {
+    "DiskShadow" {
+        if (-not (Test-DiskShadowAvailable)) {
+            Write-Warning "diskshadow.exe not found. Cannot use DiskShadow backend."
+            exit 1
+        }
+        Write-Host "Using DiskShadow backend."
+        . "$PSScriptRoot\snapshot.diskshadow.ps1"
     }
-
-    Remove-Item $tempScriptFile -Force
+    "WMI" {
+        Write-Host "Using WMI backend."
+        . "$PSScriptRoot\snapshot.wmi.ps1"
+    }
+    default {
+        Write-Error "Invalid SnapshotProvider '$SnapshotProvider' in config.ps1. Use 'DiskShadow' or 'WMI'."
+        exit 1
+    }
 }
