@@ -3,19 +3,33 @@
     Main snapshot script dispatcher.
 
 .DESCRIPTION
-    Selects the snapshot backend based on configuration and runs the corresponding snapshot creation script.
+    Selects the snapshot backend based on configuration or an explicit script parameter -Provider 
+    and runs the corresponding snapshot creation script.
     Requires Administrator privileges.
 #>
+
+param(
+    [ValidateSet("WMI", "DiskShadow")]
+    [string]$Provider
+)
 
 . "$PSScriptRoot\config.ps1"
 . "$PSScriptRoot\utils.ps1"
 
 Require-Admin
 
+$SnapshotProvider = if ($PSBoundParameters.ContainsKey("Provider")) {
+    Write-Host "Snapshot provider overridden via parameter: $Provider"
+    $Provider
+} else {
+    Write-Host "Snapshot provider loaded from config: $SnapshotProvider"
+    $SnapshotProvider
+}
+
 switch ($SnapshotProvider) {
     "DiskShadow" {
         if (-not (Test-DiskShadowAvailable)) {
-            Write-Warning "diskshadow.exe not found. Cannot use DiskShadow backend."
+            Write-Error "DiskShadow backend selected but diskshadow.exe is not available on this system."
             exit 1
         }
         Write-Host "Using DiskShadow backend."
