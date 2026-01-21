@@ -3,8 +3,8 @@
     Deletes old Volume Shadow Copy snapshots exceeding the retention period.
 
 .DESCRIPTION
-    This script lists all existing VSS snapshots and deletes those older than the configured retention days.
-    Requires administrator privileges to manage snapshots.
+    Deletes VSS snapshots older than retention period using CIM Remove-CimInstance.
+    Requires admin privileges.
 #>
 
 . "$PSScriptRoot\config.ps1"
@@ -14,9 +14,14 @@ Require-Admin
 
 $limitDate = (Get-Date).AddDays(-$RetentionDays)
 
-Get-CimInstance Win32_ShadowCopy | ForEach-Object {
-    if ($_.InstallDate -lt $limitDate) {
-        Write-Host "Deleting snapshot $($_.ID) created on $($_.InstallDate)"
-        Invoke-CimMethod -InputObject $_ -MethodName Delete | Out-Null
+$snapshotsToDelete = Get-CimInstance Win32_ShadowCopy | Where-Object { $_.InstallDate -lt $limitDate }
+
+foreach ($snapshot in $snapshotsToDelete) {
+    Write-Host "Deleting snapshot $($snapshot.ID) created on $($snapshot.InstallDate)"
+    try {
+        Remove-CimInstance -InputObject $snapshot
+        Write-Host "Deleted successfully."
+    } catch {
+        Write-Warning "Failed to delete snapshot $($snapshot.ID): $_"
     }
 }
