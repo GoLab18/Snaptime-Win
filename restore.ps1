@@ -34,22 +34,29 @@ param(
 
 Require-Admin
 
-# Preparing and creating mount directory for the snapshot volume
+$shadow = Get-CimInstance Win32_ShadowCopy | Where-Object ID -eq $ShadowID
+
+if (-not $shadow) {
+    throw "Snapshot $ShadowID not found"
+}
+
 $mount = "C:\ShadowMount\$ShadowID"
-if (-Not (Test-Path $mount)) {
+$device = $shadow.DeviceObject
+
+if (-not (Test-Path $mount)) {
     New-Item -ItemType Directory -Path $mount | Out-Null
 }
 
-# Creating a symbolic link to the snapshot volume
-cmd /c "mklink /d `"$mount`" \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy$ShadowID" | Out-Null
+cmd /c "mklink /d `"$mount`" $device" | Out-Null
 
-# Building the full source path inside the mounted snapshot
-$sourceFull = Join-Path $mount $SourcePath.TrimStart("C:\")
+$sourceFull = Join-Path $mount $SourcePath
 
-Write-Host "Copying from $sourceFull to $DestinationPath"
+Write-Host "Restoring from snapshot:"
+Write-Host "  Source:      $sourceFull"
+Write-Host "  Destination: $DestinationPath"
 
 Copy-Item -Path $sourceFull -Destination $DestinationPath -Recurse -Force
 
-Write-Host "Restore completed."
-
 Remove-Item $mount -Recurse -Force
+
+Write-Host "Restore completed successfully."
