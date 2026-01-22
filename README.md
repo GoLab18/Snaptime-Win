@@ -3,26 +3,26 @@
 ## Description
 
 PowerShell-based tool that automates the creation and management of Volume Shadow Copy snapshots on Windows systems.  
-It periodically creates point-in-time snapshots of specified volumes, allowing users to browse and restore individual files or folders from previous states. The solution includes automatic cleanup of snapshots older than a configurable retention period, ensuring efficient disk space usage.
+It periodically creates point-in-time snapshots of specified volumes, allowing files and folders restoration. It includes automatic cleanup of snapshots older than a configurable retention period.
 
 Key features:
 - Automated snapshot creation at configurable intervals
 - Easy listing of existing snapshots
 - File and folder restoration from any snapshot
 - Automatic deletion of snapshots older than a defined retention period
-- Full automation via PowerShell scripts and Windows Task Scheduler integration
-- Configuration through a single config file
+- Automation via PowerShell scripts and Windows Task Scheduler integration
+- Configuration through a config file
 
 ## Requirements
 
-- Script execution enabled.
 - PowerShell running with Administrator privileges.
 - VSS service must be enabled.
-- `diskshadow.exe` must be available in the system PATH (typically located at `C:\Windows\System32\diskshadow.exe`) **only if the DiskShadow backend is chosen**.
+- Script execution enabled.
+- `diskshadow.exe` must be in the system PATH if the DiskShadow backend is chosen (typically located at `C:\Windows\System32\diskshadow.exe`).
 
 ## How to run?
 
-1. Copy all the provided script files into a local project folder on your machine.
+1. Copy the project to your local machine.
 
 2. Run PowerShell **as Administrator**.
 
@@ -42,7 +42,23 @@ Key features:
 
 6. To list existing snapshots, run:
     ```powershell
-    .\restore.ps1 -ShadowID &lt;SnapshotID&gt; -SourcePath &lt;PathInsideSnapshot&gt; -DestinationPath &lt;RestoreLocation&gt;
+    .\list.ps1
+    ```
+
+6. To restore in-place a file named **test.txt** from a snapshot with an id **GUID**, you can run:
+    ```powershell
+    .\restore.ps1 -ShadowID "{GUID}" -SourcePath "Users\test.txt"
+    ```
+
+    or:
+
+    ```powershell
+    .\restore.ps1 -ShadowID GUID -SourcePath "Users\test.txt"
+    ```
+
+6. To restore a folder named **test** from a snapshot with an id **GUID** to a folder **Backup** on your **C drive**, you can run:
+    ```powershell
+    .\restore.ps1 -ShadowID "{GUID}" -SourcePath "Users\test" -DestinationPath "C:\Backup"
     ```
 
 ## Snapshot Backend Selection
