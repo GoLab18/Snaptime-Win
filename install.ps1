@@ -7,7 +7,9 @@
     removes any old scheduled tasks to avoid duplication,
     and registers new scheduled tasks to run snapshots and cleanup automatically
     at configured intervals and times.
-    Tasks run as SYSTEM with highest privileges.
+
+.NOTES
+    Requires Administrator privileges.
 #>
 
 $installDir = "C:\SnapTime-Win"
