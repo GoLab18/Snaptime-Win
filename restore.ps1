@@ -9,7 +9,7 @@
       - directly to its original system location (in-place restore).
 
 .PARAMETER ShadowID
-    The ID (GUID) of the Volume Shadow Copy snapshot.
+    The ID (GUID) of the Volume Shadow Copy snapshot. Might be either given as a string with a format {GUID} or GUID.
 
 .PARAMETER SourcePath
     Relative path inside the snapshot volume (e.g. Users\Public\Documents\file.txt).
@@ -33,21 +33,20 @@ param(
 )
 
 . "$PSScriptRoot\utils.ps1"
-
 Require-Admin
 
-$normShadowID = $ShadowID.Trim().ToLower()
+$normShadowID = $ShadowID.Trim('{}').ToLower()
 
 $shadow = Get-CimInstance Win32_ShadowCopy | Where-Object {
-    $_.ID.ToLower() -eq $normShadowID
+    $_.ID.Trim('{}').ToLower() -eq $normShadowID
 }
 
 if (-not $shadow) {
-    throw "Snapshot $ShadowID not found."
+    throw "Snapshot {$ShadowID} not found."
 }
 
 $mountRoot = "C:\ShadowMount"
-$mount     = Join-Path $mountRoot $ShadowID
+$mount     = Join-Path $mountRoot "{$normShadowID}"
 $device    = $shadow.DeviceObject + "\\"
 
 if (Test-Path $mount) {
@@ -60,42 +59,51 @@ if (-not (Test-Path $mountRoot)) {
 
 cmd /c "mklink /d `"$mount`" $device" | Out-Null
 
-$sourceFull = Join-Path $mount $SourcePath
+try {
+    $sourceFull = Join-Path $mount $SourcePath
 
-if (-not (Test-Path $sourceFull)) {
-    Remove-Item $mount -Recurse -Force
-    throw "Source path '$SourcePath' does not exist in snapshot."
+    if (-not (Test-Path $sourceFull)) {
+        throw "Source path '$SourcePath' does not exist in snapshot."
+    }
+
+    $sourceItem   = Get-Item -LiteralPath $sourceFull
+    $sourceIsFile = -not $sourceItem.PSIsContainer
+
+    if (-not $DestinationPath) {
+        $relativePath = $SourcePath.TrimStart('\')
+        $driveRoot    = $shadow.VolumeName.TrimEnd('\')
+
+        $DestinationPath = Join-Path $driveRoot $relativePath
+    }
+
+    if ($sourceIsFile) {
+        $destExists        = Test-Path $DestinationPath
+        $destLooksLikeFile = [System.IO.Path]::HasExtension($DestinationPath)
+
+        if ($destExists -and (Get-Item $DestinationPath).PSIsContainer) {
+            $DestinationPath = Join-Path $DestinationPath $sourceItem.Name
+        }
+        elseif (-not $destExists -and -not $destLooksLikeFile) {
+            New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+            $DestinationPath = Join-Path $DestinationPath $sourceItem.Name
+        }
+    }
+
+    $destinationDir = Split-Path $DestinationPath -Parent
+    if ($destinationDir -and -not (Test-Path $destinationDir)) {
+        New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+    }
+
+    Write-Host "Restoring from snapshot:"
+    Write-Host "  Source:      $sourceFull"
+    Write-Host "  Destination: $DestinationPath"
+
+    Copy-Item -Path $sourceFull -Destination $DestinationPath -Recurse -Force
 }
-
-$sourceItem  = Get-Item -LiteralPath $sourceFull
-$sourceIsFile = -not $sourceItem.PSIsContainer
-
-if (-not $DestinationPath) {
-    $relativePath = $SourcePath.TrimStart('\')
-    $driveRoot    = $shadow.VolumeName.TrimEnd('\')
-
-    $DestinationPath = Join-Path $driveRoot $relativePath
+finally {
+    if (Test-Path $mountRoot) {
+        Remove-Item $mountRoot -Recurse -Force
+    }
 }
-
-if ($sourceIsFile -and (Test-Path $DestinationPath -PathType Container)) {
-    $DestinationPath = Join-Path $DestinationPath $sourceItem.Name
-}
-
-$destinationDir = Split-Path $DestinationPath -Parent
-if (-not (Test-Path $destinationDir)) {
-    New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
-}
-
-Write-Host "Restoring from snapshot:"
-Write-Host "  Source:      $sourceFull"
-Write-Host "  Destination: $DestinationPath"
-
-Copy-Item `
-    -Path $sourceFull `
-    -Destination $DestinationPath `
-    -Recurse `
-    -Force
-
-Remove-Item $mountRoot -Recurse -Force
 
 Write-Host "Restore completed successfully."
