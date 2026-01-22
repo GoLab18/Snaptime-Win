@@ -4,19 +4,21 @@
 
 .DESCRIPTION
     Creates a symbolic link to the selected VSS snapshot volume,
-    then copies the specified source file or folder from the snapshot to a destination path.
+    then restores the specified file or folder either:
+      - to a provided destination path (copy mode), or
+      - directly to its original system location (in-place restore).
 
 .PARAMETER ShadowID
-    The ID (GUID suffix) of the Volume Shadow Copy snapshot to restore from.
+    The ID (GUID) of the Volume Shadow Copy snapshot.
 
 .PARAMETER SourcePath
-    The relative path inside the snapshot volume to the file or folder to restore.
+    Relative path inside the snapshot volume (e.g. Users\Public\Documents\file.txt).
 
 .PARAMETER DestinationPath
-    The destination path on the local system where the file or folder will be copied.
+    Optional destination path. If omitted, restore happens in-place.
 
 .NOTES
-    Requires Administrator privileges to create symbolic links and access VSS snapshots.
+    Requires Administrator privileges.
 #>
 
 param(
@@ -26,7 +28,7 @@ param(
     [Parameter(Mandatory)]
     [string]$SourcePath,
 
-    [Parameter(Mandatory)]
+    [Parameter(Mandatory = $false)]
     [string]$DestinationPath
 )
 
@@ -34,49 +36,66 @@ param(
 
 Require-Admin
 
-$normalizedShadowID = $ShadowID.Trim().ToLower()
+$normShadowID = $ShadowID.Trim().ToLower()
+
 $shadow = Get-CimInstance Win32_ShadowCopy | Where-Object {
-    $_.ID.ToString().Trim().ToLower() -eq $normalizedShadowID
+    $_.ID.ToLower() -eq $normShadowID
 }
 
 if (-not $shadow) {
-    throw "Snapshot $ShadowID not found"
+    throw "Snapshot $ShadowID not found."
 }
 
-$mount = "C:\ShadowMount\$ShadowID"
-$device = $shadow.DeviceObject + "\\"
+$mountRoot = "C:\ShadowMount"
+$mount     = Join-Path $mountRoot $ShadowID
+$device    = $shadow.DeviceObject + "\\"
 
 if (Test-Path $mount) {
-    Write-Host "Removing existing mount folder or link: $mount"
     Remove-Item -Path $mount -Recurse -Force
 }
 
-cmd /c "mklink /d `"$mount`" $device"
+if (-not (Test-Path $mountRoot)) {
+    New-Item -ItemType Directory -Path $mountRoot | Out-Null
+}
+
+cmd /c "mklink /d `"$mount`" $device" | Out-Null
 
 $sourceFull = Join-Path $mount $SourcePath
+
+if (-not (Test-Path $sourceFull)) {
+    Remove-Item $mount -Recurse -Force
+    throw "Source path '$SourcePath' does not exist in snapshot."
+}
+
+$sourceItem  = Get-Item -LiteralPath $sourceFull
+$sourceIsFile = -not $sourceItem.PSIsContainer
+
+if (-not $DestinationPath) {
+    $relativePath = $SourcePath.TrimStart('\')
+    $driveRoot    = $shadow.VolumeName.TrimEnd('\')
+
+    $DestinationPath = Join-Path $driveRoot $relativePath
+}
+
+if ($sourceIsFile -and (Test-Path $DestinationPath -PathType Container)) {
+    $DestinationPath = Join-Path $DestinationPath $sourceItem.Name
+}
+
+$destinationDir = Split-Path $DestinationPath -Parent
+if (-not (Test-Path $destinationDir)) {
+    New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+}
 
 Write-Host "Restoring from snapshot:"
 Write-Host "  Source:      $sourceFull"
 Write-Host "  Destination: $DestinationPath"
 
-$parentFolder = Split-Path -Path $sourceFull -Parent
-Write-Host "Contents of the parent folder ($parentFolder):"
-try {
-    Get-ChildItem -Path $parentFolder -Force | ForEach-Object {
-        Write-Host " - $($_.Name)"
-    }
-} catch {
-    Write-Warning "Unable to list contents of $parentFolder"
-}
+Copy-Item `
+    -Path $sourceFull `
+    -Destination $DestinationPath `
+    -Recurse `
+    -Force
 
-if (-not (Test-Path $sourceFull)) {
-    Write-Error "Source path '$sourceFull' does not exist in the snapshot."
-    Remove-Item $mount -Recurse -Force
-    exit 1
-}
-
-Copy-Item -Path $sourceFull -Destination $DestinationPath -Recurse -Force
-
-Remove-Item $mount -Recurse -Force
+Remove-Item $mountRoot -Recurse -Force
 
 Write-Host "Restore completed successfully."
