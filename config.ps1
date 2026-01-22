@@ -3,7 +3,7 @@
     Configuration parameters for snapshot scheduling and retention.
 
 .DESCRIPTION
-    Defines snapshot provider, volumes to snapshot, watched paths, snapshot interval,
+    Defines snapshot provider, volumes to snapshot, snapshot interval,
     retention period, cleanup schedule, and snapshot naming prefix.
     Modify these settings to customize backup behavior.
 #>
@@ -14,10 +14,6 @@ $SnapshotProvider = "WMI"
 # Volumes to snapshot
 $Volumes = @("C:")
 
-# Paths to back up (must be on the volumes specified above)
-$WatchedPaths = @(
-    "C:\Users"
-)
 
 # Snapshot interval in minutes
 $SnapshotIntervalMinutes = 30
