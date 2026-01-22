@@ -47,13 +47,11 @@ $mount = "C:\ShadowMount\$ShadowID"
 $device = $shadow.DeviceObject + "\\"
 
 if (Test-Path $mount) {
-    Write-Host "Removing existing mount folder: $mount"
+    Write-Host "Removing existing mount folder or link: $mount"
     Remove-Item -Path $mount -Recurse -Force
 }
 
-New-Item -ItemType Directory -Path $mount | Out-Null
-
-cmd /c "mklink /d `"$mount`" $device" | Out-Null
+cmd /c "mklink /d `"$mount`" $device"
 
 $sourceFull = Join-Path $mount $SourcePath
 
