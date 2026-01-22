@@ -1,8 +1,8 @@
-# Volume Shadow Copy Manager for Windows
+# SnapTime-Win
 
 ## Description
 
-PowerShell-based tool that automates the creation and management of Volume Shadow Copy snapshots on Windows systems.  
+PowerShell-based tool that automates the creation and management of **Volume Shadow Copy** snapshots on Windows systems.  
 It periodically creates point-in-time snapshots of specified volumes, allowing files and folders restoration. It includes automatic cleanup of snapshots older than a configurable retention period.
 
 Key features:
