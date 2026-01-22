@@ -3,7 +3,7 @@
     Restore files or folders from a specified Volume Shadow Copy snapshot.
 
 .DESCRIPTION
-    This script creates a symbolic link to the selected VSS snapshot volume,
+    Creates a symbolic link to the selected VSS snapshot volume,
     then copies the specified source file or folder from the snapshot to a destination path.
 
 .PARAMETER ShadowID
@@ -34,18 +34,24 @@ param(
 
 Require-Admin
 
-$shadow = Get-CimInstance Win32_ShadowCopy | Where-Object ID -eq $ShadowID
+$normalizedShadowID = $ShadowID.Trim().ToLower()
+$shadow = Get-CimInstance Win32_ShadowCopy | Where-Object {
+    $_.ID.ToString().Trim().ToLower() -eq $normalizedShadowID
+}
 
 if (-not $shadow) {
     throw "Snapshot $ShadowID not found"
 }
 
 $mount = "C:\ShadowMount\$ShadowID"
-$device = $shadow.DeviceObject
+$device = $shadow.DeviceObject + "\\"
 
-if (-not (Test-Path $mount)) {
-    New-Item -ItemType Directory -Path $mount | Out-Null
+if (Test-Path $mount) {
+    Write-Host "Removing existing mount folder: $mount"
+    Remove-Item -Path $mount -Recurse -Force
 }
+
+New-Item -ItemType Directory -Path $mount | Out-Null
 
 cmd /c "mklink /d `"$mount`" $device" | Out-Null
 
@@ -54,6 +60,22 @@ $sourceFull = Join-Path $mount $SourcePath
 Write-Host "Restoring from snapshot:"
 Write-Host "  Source:      $sourceFull"
 Write-Host "  Destination: $DestinationPath"
+
+$parentFolder = Split-Path -Path $sourceFull -Parent
+Write-Host "Contents of the parent folder ($parentFolder):"
+try {
+    Get-ChildItem -Path $parentFolder -Force | ForEach-Object {
+        Write-Host " - $($_.Name)"
+    }
+} catch {
+    Write-Warning "Unable to list contents of $parentFolder"
+}
+
+if (-not (Test-Path $sourceFull)) {
+    Write-Error "Source path '$sourceFull' does not exist in the snapshot."
+    Remove-Item $mount -Recurse -Force
+    exit 1
+}
 
 Copy-Item -Path $sourceFull -Destination $DestinationPath -Recurse -Force
 
